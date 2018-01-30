@@ -13,15 +13,15 @@
 #include "add.h"
 
 int main() {
-  int N = 1024;
+  int matSize = 1000;
   int sequential = 1;
   int blocks = 1;
   int threads = 1;
 
   //get array dimensions
-  std::cout << "Please enter the dimensions of the matrix (1000<=N<=10000):";
-  std::cin >> N;
-  //std::cout << "you input: " << N << std::endl;
+  std::cout << "Please enter the dimensions of the matrix (1000<=matSize<=10000):";
+  std::cin >> matSize;
+  //std::cout << "you input: " << matSize << std::endl;
 
   //get if we are using cuda or sequential addtion
   std::cout << "Sequential or CUDA?(1=Sequential, 0=CUDA):";
@@ -30,23 +30,36 @@ int main() {
   if(sequential < 1){
     std::cout << "Please enter the number of blocks to be used:";
     std::cin >> blocks;
+    if(blocks < 1){
+    	std::cout << "invalid block number, using default of matSize*matSize." << std::endl;
+    	blocks = matSize*matSize;
+    }
 
-    std::cout << "Please enter the number of threads per block:";
+    std::cout << "Please enter the number of threads per block(1= no striding):";
     std::cin >> threads;
+    if(threads < 1){
+    	std::cout << "invalid thread number, using default of 1." << std::endl;
+    	threads = 1;
+    }
+    /*if(blocks*threads != matSize*matSize){
+    	std::cout << "insufficient blocks and threads used, switching to default." << std::endl;
+    	blocks = matSize*matSize;
+    	threads = 1;
+    }*/
   }
 
   // Arrays on the host (CPU)
   //int a[N], b[N], c[N];
 
-  int* a[N];
-  int* b[N];
-  int* c[N];
+  int* a[matSize];
+  int* b[matSize];
+  int* c[matSize];
 
-  for(int iter = 0; iter<N;iter++){
-	  a[iter] = new int [N];
-	  b[iter] = new int [N];
-	  c[iter] = new int [N];
-	  for(int cur = 0; cur<N;cur++){
+  for(int iter = 0; iter<matSize;iter++){
+	  a[iter] = new int [matSize];
+	  b[iter] = new int [matSize];
+	  c[iter] = new int [matSize];
+	  for(int cur = 0; cur<matSize;cur++){
 		  a[iter][cur] = iter*cur;
 		  b[iter][cur] = iter*cur;
 		  c[iter][cur] = 0;
@@ -57,7 +70,7 @@ int main() {
     These will point to memory on the GPU - notice the correspondence
     between these pointers and the arrays declared above.
    */
-  int **dev_a, **dev_b, **dev_c;
+  int *dev_a, *dev_b, *dev_c;
 
 
   /*
@@ -78,17 +91,17 @@ int main() {
     Actually, a good idea would be to wrap this error checking in a
     function or macro, which is what the Cuda By Example book does.
    */
-  /*cudaError_t err = cudaMalloc( (void**) &dev_a, N * sizeof(int));
+  cudaError_t err = cudaMalloc( (void**) &dev_a, matSize * sizeof(int));
   if (err != cudaSuccess) {
     std::cerr << "Error: " << cudaGetErrorString(err) << std::endl;
     exit(1);
   }
-  cudaMalloc( (void**) &dev_b, N * sizeof(int));
-  cudaMalloc( (void**) &dev_c, N * sizeof(int));
+  cudaMalloc( (void**) &dev_b, matSize * sizeof(int));
+  cudaMalloc( (void**) &dev_c, matSize * sizeof(int));
 
   // These lines just fill the host arrays with some data so we can do
   // something interesting. Well, so we can add two arrays.
-  for (int i = 0; i < N; ++i) {
+  /*for (int i = 0; i < N; ++i) {
     a[i] = i;
     b[i] = i;
   }*/
@@ -112,8 +125,8 @@ int main() {
 
   //sequential addition
   if(sequential > 0){
-	  for(int x = 0; x < N; x++){
-		  for(int y = 0; y < N; y++){
+	  for(int x = 0; x < matSize; x++){
+		  for(int y = 0; y < matSize; y++){
 			  c[x][y] = a[x][y] + b[x][y];
 		  }
 	  }
@@ -130,9 +143,10 @@ int main() {
     we want to copy. The last argument is a constant that tells
     cudaMemcpy the direction of the transfer.
    */
-  cudaMemcpy(dev_a, a, N * sizeof(int), cudaMemcpyHostToDevice);
-  cudaMemcpy(dev_b, b, N * sizeof(int), cudaMemcpyHostToDevice);
-  cudaMemcpy(dev_c, c, N * sizeof(int), cudaMemcpyHostToDevice);
+	for(int iter = 0; iter < matSize; iter++){
+		cudaMemcpy(dev_a, a[iter], matSize * sizeof(int), cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_b, b[iter], matSize * sizeof(int), cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_c, c[iter], matSize * sizeof(int), cudaMemcpyHostToDevice);
   
   /*
     FINALLY we get to run some code on the GPU. At this point, if you
@@ -153,7 +167,7 @@ int main() {
     time. This is how cuda can get such large speedups.
    */
 
-  add<<<blocks, threads>>>(dev_a, dev_b, dev_c);
+		add<<<blocks, threads>>>(dev_a, dev_b, dev_c);
 
   /*
     Unfortunately, the GPU is to some extent a black box. In order to
@@ -164,7 +178,8 @@ int main() {
     program we would want to check the error code returned by this
     function.
   */
-  cudaMemcpy(c, dev_c, N * sizeof(int), cudaMemcpyDeviceToHost);
+		cudaMemcpy(c[iter], dev_c, matSize * sizeof(int), cudaMemcpyDeviceToHost);
+	}
   }
   /*
     This is the other end of the timing process. We record an event,
@@ -184,10 +199,11 @@ int main() {
   /*
     Let's check that the results are what we expect.
    */
-  for (int i = 0; i < N; ++i) {
-	  for(int j = 0; j < N; j++){
+  for (int i = 0; i < matSize; ++i) {
+	  for(int j = 0; j < matSize; j++){
 		  if (c[i][j] != a[i][j] + b[i][j]) {
 			  std::cerr << "Oh no! Something went wrong. You should check your cuda install and your GPU. :(" << std::endl;
+			  std::cout << "Your program took: " << elapsedTime << " ms." << std::endl;
 
 			  // clean up events - we should check for error codes here.
 			  cudaEventDestroy( start );
