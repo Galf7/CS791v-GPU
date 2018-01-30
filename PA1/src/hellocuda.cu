@@ -27,6 +27,14 @@ int main() {
   std::cout << "Sequential or CUDA?(1=Sequential, 0=CUDA):";
   std::cin >> sequential;
 
+  if(sequential < 1){
+    std::cout << "Please enter the number of blocks to be used:";
+    std::cin >> blocks;
+
+    std::cout << "Please enter the number of threads per block:";
+    std::cin >> threads;
+  }
+
   // Arrays on the host (CPU)
   //int a[N], b[N], c[N];
 
