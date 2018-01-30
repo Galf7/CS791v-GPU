@@ -9,7 +9,7 @@
   pointers we pass in should point to memory on the device, but this
   is not indicated by the function's signature.
  */
-__global__ void add(int **a, int **b, int **c) {
+__global__ void add(int *a, int *b, int *c) {
 
   /*
     Each thread knows its identity in the system. This identity is
@@ -20,7 +20,7 @@ __global__ void add(int **a, int **b, int **c) {
     thing is that the first step in the function is converting the
     thread's indentity into an index into the data.
    */
-  int thread_id = blockIdx.x;
+  int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
 
   /*
     We make sure that the thread_id isn't too large, and then we
