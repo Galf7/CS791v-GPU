@@ -1,0 +1,16 @@
+Sequential(1000x1000): 10.32ms
+Sequential(1000x1000): 11.51ms
+Sequential(1000x1000): 10.31ms
+average(1000x1000): 10.72ms
+
+GPU:(Matrix Dimensions: 1000x1000, Block number: 5, Threads per Block: 2): 48.73ms
+GPU:(Matrix Dimensions: 1000x1000, Block number: 256, Threads per Block: 32): 2.89ms
+GPU:(Matrix Dimensions: 1000x1000, Block number: 512, Threads per Block: 64): 2.84ms
+GPU:(Matrix Dimensions: 1000x1000, Block number: 1024, Threads per Block: 128): 2.88ms
+GPU:(Matrix Dimensions: 1000x1000, Block number: 2048, Threads per Block: 256): 2.89ms
+GPU:(Matrix Dimensions: 1000x1000, Block number: 8192, Threads per Block: 1024): 2.93ms
+GPU average(1000x1000): 2.89ms
+GPU:(Matrix Dimensions: 4096x4096, Block number: 2048, Threads per Block: 1024): 36.49ms
+GPU:(Matrix Dimensions: 4096x4096, Block number: 1024, Threads per Block: 512): 37.34ms
+GPU:(Matrix Dimensions: 4096x4096, Block number: 1024, Threads per Block: 256): 36.13ms
+GPU average(4096x4096): 36.66ms
