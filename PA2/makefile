@@ -4,7 +4,7 @@ INCLUDES=-I../include
 O_FILES=hellocuda.o add.o
 
 all: $(O_FILES)
-	$(CC) -o PA1 $(O_FILES)
+	$(CC) -o PA2 $(O_FILES)
 
 hellocuda.o: ../src/hellocuda.cu
 	$(CC) -c ../src/hellocuda.cu -o hellocuda.o $(INCLUDES)
