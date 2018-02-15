@@ -9,18 +9,62 @@
  */
 
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 #include "add.h"
 
+int getLargest(int* nn,float* array,int K){
+	int large = 0;
+
+	for(int i = 0; i < K; i++){
+		if(array[nn[i]] > array[nn[large]]){
+			large = i;
+		}
+	}
+
+	return large;
+}
+
+void readCSV(float** dev_a,int matSize){
+	std::ifstream infile;
+	infile.open("../pa3.csv");
+	std::string line;
+	std::string cell;
+	int row = 0;
+	int col = 0;
+	if (infile.is_open())
+	{
+		while(row < matSize && std::getline(infile,line)){
+			std::stringstream ss(line);
+			while(col < matSize && std::getline(ss,cell,',')){
+				dev_a[row][col]= std::strtof(cell.c_str(),0);
+				col++;
+			}
+			row++;
+			col = 0;
+		}
+		infile.close();
+	}
+	else {
+		std::cout << "Error opening file" <<std::endl;
+	}
+}
+
 int main() {
-  int matSize = 1000;
+  int matSize = 100;
   int sequential = 1;
   int blocks = 1;
   int threads = 1;
+  int K = 5;
+
+  int nanRows[10] = {99,55,89,23,42,69,7,11,33,75};
+  float repNums[10];
 
   //get array dimensions
-  std::cout << "Please enter the dimensions of the matrix (1000<=matSize<=10000):";
-  std::cin >> matSize;
+  //std::cout << "Please enter the number of nearest neighbors (K):";
+  //std::cin >> matSize;
   //std::cout << "you input: " << matSize << std::endl;
 
   //get if we are using cuda or sequential addtion
@@ -57,7 +101,7 @@ int main() {
     between these pointers and the arrays declared above.
    */
   //int (*dev_a)[matSize], (*dev_b)[matSize], (*dev_c)[matSize];
-  int **dev_a, **dev_b, **dev_c;
+  float **dev_a, *dev_b;//, **dev_c;
 
   /*
     These calls allocate memory on the GPU (also called the
@@ -78,28 +122,37 @@ int main() {
     function or macro, which is what the Cuda By Example book does.
    */
   //std::cout << "1" << std::endl;
-  cudaError_t err = cudaMallocManaged( (void**) &dev_a, (matSize*matSize) * sizeof(int));
+  cudaError_t err = cudaMallocManaged( (void**) &dev_a, (matSize*matSize) * sizeof(float));
   if (err != cudaSuccess) {
     std::cerr << "Error: " << cudaGetErrorString(err) << std::endl;
     exit(1);
   }
-  cudaMallocManaged( (void**) &dev_b, (matSize*matSize) * sizeof(int));
-  cudaMallocManaged( (void**) &dev_c, (matSize*matSize) * sizeof(int));
+  cudaMallocManaged( (void**) &dev_b, (matSize) * sizeof(float));
+  //cudaMallocManaged( (void**) &dev_c, (matSize*matSize) * sizeof(int));
 
   // These lines just fill the host arrays with some data so we can do
   // something interesting. Well, so we can add two arrays.
   //std::cout << "2" << std::endl;
   for(int iter = 0; iter<matSize;iter++){
-	  cudaMallocManaged( (void**) &(dev_a[iter]), (matSize)*sizeof(int));
-	  cudaMallocManaged( (void**) &(dev_b[iter]), (matSize)*sizeof(int));
-	  cudaMallocManaged( (void**) &(dev_c[iter]), (matSize)*sizeof(int));
+	  cudaMallocManaged( (void**) &(dev_a[iter]), (matSize)*sizeof(float));
+	  //cudaMallocManaged( (void**) &(dev_b[iter]), (matSize)*sizeof(int));
+	  //cudaMallocManaged( (void**) &(dev_c[iter]), (matSize)*sizeof(int));
   	  for(int cur = 0; cur<matSize;cur++){
-  		dev_a[iter][cur] = iter*cur;
-  		dev_b[iter][cur] = iter*cur;
-  		dev_c[iter][cur] = 0;
+  		dev_a[iter][cur] = 0;
+  		//dev_c[iter][cur] = 0;
   	  }
+	  dev_b[iter] = 0;
     }
   //std::cout << "3" << std::endl;
+
+  //Read in CSV File
+  readCSV(dev_a,matSize);
+
+  //Replace Random nums with NaN
+  for(int i=0;i<10;i++){
+	  repNums[i] = dev_a[nanRows[i]][1];
+	  dev_a[nanRows[i]][1] = 0.0/0.0;
+  }
 
   /*
     The following code is responsible for handling timing for code
@@ -134,13 +187,61 @@ int main() {
 		  }
 	  }*/
 	  //std::cout << "5" << std::endl;
-
+	  /*
 	  for(int x = 0; x<matSize; x++){
 		  for(int y=0; y<matSize; y++){
 			  dev_c[x][y] = dev_a[x][y] * dev_b[y][x];
 		  }
 	  }
 	  //std::cout << "6" << std::endl;
+	   */
+	  //Sequential K nearest neighbors
+	  for(int misRow = 0; misRow < matSize; misRow++)
+	  {
+		  if(isnan(dev_a[misRow][1])){
+			  //std::cout << "nan" << std::endl;
+			  int nn[K];
+			  int largest = 0;
+			  for(int i = 0; i < K; i++){
+				  nn[i] = i;
+			  }
+			  for(int row = 0; row < matSize; row++){
+				  dev_b[row] = 0;
+				  for(int col = 2; col < matSize; col++){
+					  if(row == misRow || isnan(dev_a[row][1])){
+						  std::cout << "nan row, skip" << std::endl;
+						  dev_b[row] = 100*100;
+						  col = matSize;
+					  }
+					  else{
+						  dev_b[row] += (dev_a[misRow][col] - dev_a[row][col]) * (dev_a[misRow][col] - dev_a[row][col]);
+						  if(row < 1){
+							  std::cout << dev_b[row] << ",";
+						  }
+					  }
+				  }
+				  if(row < 1){
+					  std::cout << std::endl;
+				  }
+				  //std::cout << dev_b[row] << " ";
+				  dev_b[row] = sqrt(dev_b[row]);
+				  //std::cout << dev_b[row] << std::endl;
+				  if(row >= K){
+					  largest = getLargest(nn,dev_b, K);
+					  if(dev_b[row] < dev_b[nn[largest]]){
+						  nn[largest] = row;
+					  }
+				  }
+			  }
+
+			  int avg = 0;
+			  for(int j = 0; j < K; j++){
+				  avg = avg + dev_b[nn[j]];
+			  }
+			  avg = avg/K;
+			  dev_a[misRow][1] = avg;
+		  }
+	  }
 
   }else{
 
@@ -181,7 +282,10 @@ int main() {
 
 		//add<<<blocks, threads>>>(dev_a, dev_b, dev_c);
 	  	  std::cout << "parallel in" << std::endl;
-	  	  mult<<<blocks, threads>>>(matSize,dev_a, dev_b, dev_c);
+	  	  //mult<<<blocks, threads>>>(matSize,dev_a, dev_b, dev_c);
+
+	  	  //parallel KNN
+
 	  	  cudaDeviceSynchronize();
 	  	  std::cout << "parallel out" << std::endl;
 
@@ -215,13 +319,11 @@ int main() {
   /*
     Let's check that the results are what we expect.
    */
-  for (int i = 0; i < matSize; ++i) {
-	  for(int j = 0; j < matSize; j++){
-		  if (dev_c[i][j] != dev_a[i][j] * dev_b[j][i]) {
+  for (int i = 0; i < matSize/10; ++i) {
+	  /*for(int j = 0; j < matSize; j++){
+		  if (false) {
 			  std::cerr << "Oh no! Something went wrong. :(" << std::endl;
 			  std::cout << "Your program took: " << elapsedTime << " ms." << std::endl;
-			  std::cout << "Values at error location were: a: " << dev_a[i][j] << " b: " << dev_b[j][i]
-			            << " c: " << dev_c[i][j] << " i: " << i << " j: " << j << std::endl;
 
 			  // clean up events - we should check for error codes here.
 			  cudaEventDestroy( start );
@@ -231,10 +333,11 @@ int main() {
 			  // to check error codes for this one.
 			  cudaFree(dev_a);
 			  cudaFree(dev_b);
-			  cudaFree(dev_c);
+			  //cudaFree(dev_c);
 			  exit(1);
 		  }
-	  }
+	  }*/
+	  std::cout << "removed value:" << repNums[i] << " Estimated value:" << dev_a[nanRows[i]][1] << std::endl;
   }
 
   /*
@@ -250,6 +353,6 @@ int main() {
 
   cudaFree(dev_a);
   cudaFree(dev_b);
-  cudaFree(dev_c);
+  //cudaFree(dev_c);
 
 }
