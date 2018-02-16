@@ -302,6 +302,10 @@ int main() {
 				  cudaDeviceSynchronize();
 				  //std::cout << "parallel out" << std::endl;
 				  //get K nearest neighbors
+				  for(int x=0;x<matSize;x++){
+					  dev_b[x] = sqrt(dev_b[x]);
+				  }
+
 				  for(int i = K; i < matSize; i++){
 					  largest = getLargest(nn,dev_b, K);
 					  if(dev_b[i] < dev_b[nn[largest]]){
