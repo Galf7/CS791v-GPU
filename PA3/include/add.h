@@ -13,4 +13,6 @@ __global__ void add(int*, int*, int*);
 
 __global__ void mult(int, int**, int**, int**);
 
+__global__ void KNN(float **,float *,int ,int);
+
 #endif // ADD_H_

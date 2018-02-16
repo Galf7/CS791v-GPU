@@ -52,3 +52,21 @@ __global__ void mult(int size,int** a, int** b, int** c) {
 		c[x][y] = a[x][y] * b[y][x];
 	}
 }
+
+__global__ void KNN(float **table,float *distances,int size,int row){
+	int stride_x = blockDim.x * gridDim.x;
+	int stride_y = blockDim.y * gridDim.y;
+	int x, y;
+
+	for(int j = (blockIdx.y * blockDim.y + threadIdx.y) * blockDim.x * gridDim.x
+		+ (blockIdx.x * blockDim.x + threadIdx.x);j < size*size; j += stride_x * stride_y){
+		x = j/size;
+		y = j%size;
+		if(!isnan(table[row][1]) && !isnan(table[x][1])){
+			atomicAdd(&(distances[x]),((table[row][y] - table[x][y]) * (table[row][y] - table[x][y])));
+		}
+		else{
+			distances[x] = 1000000;
+		}
+	}
+}

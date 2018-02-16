@@ -210,7 +210,7 @@ int main() {
 				  for(int col = 2; col < matSize; col++){
 					  if(row == misRow || isnan(dev_a[row][1])){
 						  std::cout << "nan row, skip" << std::endl;
-						  dev_b[row] = 100*100;
+						  dev_b[row] = 1000*1000;
 						  col = matSize;
 					  }
 					  else{
@@ -234,9 +234,9 @@ int main() {
 				  }
 			  }
 
-			  int avg = 0;
+			  float avg = 0;
 			  for(int j = 0; j < K; j++){
-				  avg = avg + dev_b[nn[j]];
+				  avg = avg + dev_a[nn[j]][1];
 			  }
 			  avg = avg/K;
 			  dev_a[misRow][1] = avg;
@@ -280,14 +280,43 @@ int main() {
     time. This is how cuda can get such large speedups.
    */
 
-		//add<<<blocks, threads>>>(dev_a, dev_b, dev_c);
-	  	  std::cout << "parallel in" << std::endl;
-	  	  //mult<<<blocks, threads>>>(matSize,dev_a, dev_b, dev_c);
 
-	  	  //parallel KNN
+	  	  //find row with missing value
+	  	  for(int misRow = 0;misRow < matSize; misRow++)
+		  {
+			  if(isnan(dev_a[misRow][1])){
+				  //std::cout << "nan" << std::endl;
+				  int nn[K];
+				  int largest = 0;
+				  for(int i = 0; i < K; i++){
+					  nn[i] = i;
+				  }
+				  for(int iter = 0; iter < matSize; iter++){
+					  dev_b[iter] = 0;
+				  }
+				  //add<<<blocks, threads>>>(dev_a, dev_b, dev_c);
+				  //std::cout << "parallel in" << std::endl;
+				  //mult<<<blocks, threads>>>(matSize,dev_a, dev_b, dev_c);
+				  //parallel KNN distance finding
+				  KNN<<<blocks, threads>>>(dev_a,dev_b,matSize,misRow);
+				  cudaDeviceSynchronize();
+				  //std::cout << "parallel out" << std::endl;
+				  //get K nearest neighbors
+				  for(int i = K; i < matSize; i++){
+					  largest = getLargest(nn,dev_b, K);
+					  if(dev_b[i] < dev_b[nn[largest]]){
+						  nn[largest] = i;
+					  }
+				  }
 
-	  	  cudaDeviceSynchronize();
-	  	  std::cout << "parallel out" << std::endl;
+				  float avg = 0;
+				  for(int j = 0; j < K; j++){
+					  avg = avg + dev_a[nn[j]][1];
+				  }
+				  avg = avg/K;
+				  dev_a[misRow][1] = avg;
+			  }
+		  }
 
   /*
     Unfortunately, the GPU is to some extent a black box. In order to
