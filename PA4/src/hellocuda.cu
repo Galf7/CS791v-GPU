@@ -12,6 +12,10 @@
 
 #include "add.h"
 
+struct matStruct {
+	int** a,**b,**c,**d,**e;
+};
+
 int main() {
   int matSize = 1000;
   int sequential = 1;
@@ -184,6 +188,11 @@ int main() {
     different piece of data, and many threads can execute at the same
     time. This is how cuda can get such large speedups.
    */
+	  	  //CUTThreads here
+	  	  int numGPU;
+	  	  cudaGetDeviceCount(&numGPU);
+	  	  CUTThread *thread = new CUTThread[numGPU];
+	  	  matStruct *matricies = new matStruct[numGPU];
 
 		//add<<<blocks, threads>>>(dev_a, dev_b, dev_c);
 	  	  std::cout << "parallel in" << std::endl;
