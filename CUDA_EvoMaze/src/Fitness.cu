@@ -16,7 +16,7 @@ public:
 
 
 __device__ Coord* GetRegionTiles(int startX,int startY,int mapSize,int **map){
-	if(Debug && threadIdx.x == 0){
+	if(Debug ){//&& threadIdx.x == 0){
 		printf("Getting Region Tiles\n");
 	}
 	Coord *tiles;
@@ -39,7 +39,7 @@ __device__ Coord* GetRegionTiles(int startX,int startY,int mapSize,int **map){
 	int iter = 0;
 	int cursor = 0;
 	if(Debug && threadIdx.x == 0){
-		printf("%d, %d; ",tiles[iter].x,tiles[iter].y);
+		//printf("%d, %d; ",tiles[iter].x,tiles[iter].y);
 	}
 	while (tiles[cursor].x != -1 && cursor < mapSize*mapSize) {
 
@@ -52,7 +52,7 @@ __device__ Coord* GetRegionTiles(int startX,int startY,int mapSize,int **map){
 						tiles[iter].x = x;
 						tiles[iter].y = y;
 						if(Debug && threadIdx.x == 0){
-							printf("%d, %d; ",tiles[iter].x,tiles[iter].y);
+							//printf("%d, %d; ",tiles[iter].x,tiles[iter].y);
 						}
 					}
 				}
@@ -78,7 +78,7 @@ __device__ Coord* GetRegionTiles(int startX,int startY,int mapSize,int **map){
 }
 
 __device__ Coord** GetRegions(int **map, int mapSize, int startX, int startY, int tileType){
-	if(Debug && threadIdx.x == 0){
+	if(Debug){// && threadIdx.x == 0){
 		printf("Getting Regions\n");
 	}
 	Coord** regions;
@@ -98,43 +98,47 @@ __device__ Coord** GetRegions(int **map, int mapSize, int startX, int startY, in
 	int cursor = 0;
 	int iter = 0;
 	int roomNum = 0;
+	int i = 0;
 	for (int row = 0; row < mapSize; row ++) {
 		for (int col = 0; col < mapSize; col ++) {
+			roomNum = 0;
+			iter = 0;
 			if (mapFlags[row][col] == 0 && map[row][col] == tileType) {
 				Coord *newRegion = GetRegionTiles(row,col,mapSize,map);
-				roomNum = 0;
 				while(newRegion[roomNum].x != -1){
 					roomNum++;
 				}
-				regions[cursor] = new Coord[roomNum];
-				for(int i = 0; i < roomNum; i++){
+				regions[cursor] = new Coord[roomNum+1];
+				for(i = 0; i <= roomNum; i++){
 					regions[cursor][i].x = newRegion[i].x;
 					regions[cursor][i].y = newRegion[i].y;
 				}
-				cursor++;
-				iter = 0;
 				while(newRegion[iter].x != -1 && iter < mapSize*mapSize){
 					mapFlags[newRegion[iter].x][newRegion[iter].y] = 1;
 					if(Debug && threadIdx.x == 0){
-						printf("%d, %d; ",newRegion[iter].x,newRegion[iter].y);
+						printf("%d, %d; ",regions[cursor][iter].x,regions[cursor][iter].y);
 					}
 					iter++;
+				}
+				if(Debug && threadIdx.x == 0){
+					printf("%d, %d; ",regions[cursor][iter].x,regions[cursor][iter].y);
 				}
 				if(Debug && threadIdx.x == 0){
 					printf("\n");
 				}
 				delete(newRegion);
+				cursor++;
 			}
 		}
 	}
 	if(cursor < mapSize*mapSize){
-		Coord* newRegion = new Coord[1];
-		regions[cursor] = newRegion;
+		Coord* newReg = new Coord[1];
+		regions[cursor] = newReg;
 		regions[cursor][0].x = -1;
 		regions[cursor][0].y = -1;
-		delete(newRegion);
+		delete(newReg);
 	}
-	for(int i = 0; i < mapSize; i++){
+	for(i = 0; i < mapSize; i++){
 		delete(mapFlags[i]);
 	}
 	delete(mapFlags);
@@ -142,7 +146,7 @@ __device__ Coord** GetRegions(int **map, int mapSize, int startX, int startY, in
 }
 
 __device__ void MakePassage(int **map, Coord tileA, Coord tileB){
-	if(Debug && threadIdx.x == 0){
+	if(Debug){// && threadIdx.x == 0){
 		printf("Making Passage\n");
 	}
 	int cursor = 0;
@@ -185,7 +189,7 @@ __device__ void MakePassage(int **map, Coord tileA, Coord tileB){
 }
 
 __device__ void ConnectClosestRooms(Coord **rooms, int **map, int mapSize){
-	if(Debug && threadIdx.x == 0){
+	if(Debug){// && threadIdx.x == 0){
 		printf("Connect Closest Rooms\n");
 	}
 	int roomNum = 0;
@@ -246,9 +250,14 @@ __device__ void ConnectClosestRooms(Coord **rooms, int **map, int mapSize){
 							distance = distance + (rooms[room][tileA].y - rooms[room2][tileB].y) * (rooms[room][tileA].y - rooms[room2][tileB].y);
 
 							if(Debug && threadIdx.x == 0){
-								printf("Rooms: %d, %d;\n",room,room2);
-								printf("Tile: %d, %d;\n",rooms[room][tileA].x,rooms[room][tileA].y);
-								printf("Tile: %d, %d;\n",rooms[room2][tileB].x,rooms[room2][tileB].y);
+//								printf("Rooms: %d, %d;\n",room,room2);
+//								printf("Tile: %d, %d;\n",rooms[room][tileA].x,rooms[room][tileA].y);
+//								printf("Tile: %d, %d;\n",rooms[room2][tileB].x,rooms[room2][tileB].y);
+//								if(rooms[room][tileA].x>=30){
+//
+//									printf("room num1: %d, room tileA: %d, Rooms: %d, %d; Tile: %d, %d; Tile2: %d, %d; \n", room, tileA, room,room2, rooms[room][tileA].x,rooms[room][tileA].y, rooms[room2][tileB].x,rooms[room2][tileB].y);
+//								}
+
 							}
 							if(distance < bestDistance || !possibleConnection){
 								bestDistance = distance;
@@ -380,18 +389,89 @@ __device__ void RunCA(int **map, int mapSize, float* rules, unsigned int seed){
 	delete(CAmap);
 }
 
-/*
-  This is the function that each thread will execute on the GPU. The
-  fact that it executes on the device is indicated by the __global__
-  modifier in front of the return type of the function. After that,
-  the signature of the function isn't special - in particular, the
-  pointers we pass in should point to memory on the device, but this
-  is not indicated by the function's signature.
- */
-__global__ void GetFitnesses(float **population, float *fitnesses, int popSize,int chromSize,int mapSize, unsigned int seed) {
-	int chrom = (threadIdx.x)%popSize;
+__device__ int GetShortestPath(int **map,int mapSize){
+	int **pathLengths;
+	int iter = 0;
+	int curs = 0;
+	bool pathFound = false;
+	pathLengths = new int*[mapSize];
+	for(iter = 0; iter < mapSize; iter++){
+		pathLengths[iter] = new int[mapSize];
+		for(curs = 0; curs < mapSize; curs++){
+			pathLengths[iter][curs] = -1;
+		}
+	}
+	pathLengths[0][0] = 0;
+
+	Coord next;
+	next.x = 0;
+	next.y = 0;
+	while(!pathFound){
+		//go to nearest tile that can have better path length
+		if(next.x+1 < mapSize && map[next.x+1][next.y] < 1 &&
+				((pathLengths[next.x+1][next.y] > -1 && pathLengths[next.x+1][next.y] > pathLengths[next.x][next.y] + 1)
+						|| (pathLengths[next.x+1][next.y] < 0)
+				)){
+			pathLengths[next.x+1][next.y] = pathLengths[next.x][next.y] + 1;
+			next.x++;
+		}
+		else if(next.x+1 >= 0 && map[next.x-1][next.y] < 1 &&
+				((pathLengths[next.x-1][next.y] > -1 && pathLengths[next.x-1][next.y] > pathLengths[next.x][next.y] + 1)
+						|| (pathLengths[next.x-1][next.y] < 0)
+				)){
+			pathLengths[next.x-1][next.y] = pathLengths[next.x][next.y] + 1;
+			next.x--;
+		}
+		else if(next.y+1 < mapSize && map[next.x][next.y+1] < 1 &&
+				((pathLengths[next.x][next.y+1] > -1 && pathLengths[next.x][next.y+1] > pathLengths[next.x][next.y] + 1)
+						|| (pathLengths[next.x][next.y+1] < 0)
+				)){
+			pathLengths[next.x][next.y+1] = pathLengths[next.x][next.y] + 1;
+			next.y++;
+		}
+		else if(next.y+1 >= 0 && map[next.x][next.y-1] < 1 &&
+				((pathLengths[next.x][next.y-1] > -1 && pathLengths[next.x][next.y-1] > pathLengths[next.x][next.y] + 1)
+						|| (pathLengths[next.x][next.y-1] < 0)
+				)){
+			pathLengths[next.x][next.y-1] = pathLengths[next.x][next.y] + 1;
+			next.y--;
+		}
+		//else backtrack
+		else {
+			//add dead end if at one
+
+			//backtrack
+			if(pathLengths[next.x+1][next.y] < pathLengths[next.x][next.y] + 1){
+				next.x++;
+			}
+			else if(pathLengths[next.x-1][next.y] < pathLengths[next.x][next.y] + 1){
+				next.x--;
+			}
+			else if(pathLengths[next.x][next.y+1] < pathLengths[next.x][next.y] + 1){
+				next.y++;
+			}
+			else if(pathLengths[next.x][next.y-1] < pathLengths[next.x][next.y] + 1){
+				next.y--;
+			}
+		}
+		//check if done
+		if(next.x == 0 && next.y ==0){
+			if(pathLengths[next.x+1][next.y] > 0 || map[next.x+1][next.y] == 1){
+				if(pathLengths[next.x][next.y+1] > 0 || map[next.x][next.y+1] == 1){
+					pathFound = true;
+				}
+			}
+		}
+	}
+	return pathLengths[mapSize-1][mapSize-1];
+	//return deadEnds;
+	//return pathLength + deadEnds;
+}
+
+__global__ void GetFitnesses(float **population, float *fitness, int popSize,int chromSize,int mapSize, unsigned int seed) {
+	int chrom = (threadIdx.x);
 	int** map;
-	//printf("%d, ",chrom);
+	printf("%d, ",chrom);
 	//init map
 	map = new int*[mapSize];
 	for(int iter = 0; iter < mapSize; iter++){
@@ -418,20 +498,30 @@ __global__ void GetFitnesses(float **population, float *fitnesses, int popSize,i
 	Coord **rooms = GetRegions(map,mapSize,0,0,0);
 
 	//connect disconnected rooms
-	if(threadIdx.x == 0){
 	ConnectClosestRooms(rooms,map,mapSize);
+	if(threadIdx.x == 0 && Debug){
+		for(int x = 0; x < mapSize; x++){
+			for(int y = 0; y < mapSize; y++){
+				printf("%d",map[x][y]);
+			}
+			printf("\n");
+		}
 	}
-	/*int roomNum = 0;
-	while(rooms[roomNum][0].x != -1){
-		roomNum++;
-	}
-	for(int temp = 0; temp < roomNum; temp++){
-		delete(rooms[temp]);
-	}
-	delete(rooms);*/
+//	int roomNum = 0;
+//	while(rooms[roomNum][0].x != -1){
+//		roomNum++;
+//	}
+//	for(int temp = 0; temp <= roomNum; temp++){
+//		delete(rooms[temp]);
+//	}
+//	delete(rooms);
 
 	//Check fitness of maze
-
+//	int shortestPath = 0;
+//	int deadEnds = 0;
+//
+//	shortestPath = GetShortestPath(map,mapSize);
+//	fitness[chrom] = shortestPath;
 	for(int i = 0; i < mapSize; i++){
 		delete (map[i]);
 	}

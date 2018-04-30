@@ -234,7 +234,7 @@ int main() {
   int chromSize;
   bool GaStop = false;
   int generation = 0;
-  int genMax = 1;
+  int genMax = 0;
   int mapSize;
   unsigned int random;
 
@@ -270,7 +270,7 @@ int main() {
 
   //std::cout << "1" << std::endl;
 
-  popSize = 4;
+  popSize = 100;
   chromSize = 18;
   mapSize = 30;
   random = (unsigned int)(std::rand());
@@ -332,9 +332,10 @@ int main() {
   generation = 0;
   //Parallel Evoluitionary Cellular Automata
   while(!GaStop){
+	  //get random seed
 	  random = (unsigned int)(std::rand());
 	  //Evaluate fitness on GPU
-	  GetFitnesses<<<blocks, threads>>>(population,fitness,popSize,chromSize,mapSize,random);
+	  GetFitnesses<<<blocks, threads>>>(population,fitness,popSize,chromSize,mapSize, 1);//random);
 	  //sync device
 	  cudaDeviceSynchronize();
 
@@ -353,6 +354,7 @@ int main() {
 	  else{
 		  std::cout << "GA Done!" << std::endl;
 		  GaStop = true;
+		  std::cout << fitness[0] << std::endl;
 	  }
   }
 
