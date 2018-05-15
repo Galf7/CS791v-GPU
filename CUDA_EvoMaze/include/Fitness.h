@@ -15,7 +15,7 @@ __device__ Coord* GetRegionTiles(int ,int ,int ,int **);
 
 __device__ Coord** GetRegions(int **, int , int , int , int );
 
-__global__ void GetFitnesses(float **, float *,int,int,int, unsigned int);
+__global__ void GetFitnesses(float **, float *,int,int, unsigned int);
 
 __global__ void mult(int, int**, int**, int**, int**, int**);
 

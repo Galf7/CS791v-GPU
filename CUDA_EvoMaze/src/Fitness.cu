@@ -6,7 +6,7 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-__device__ bool Debug = true;
+__device__ bool Debug = false;
 
 struct Coord {
 public:
@@ -16,11 +16,11 @@ public:
 
 
 __device__ Coord* GetRegionTiles(int startX,int startY,int mapSize,int **map){
-	if(Debug ){//&& threadIdx.x == 0){
-		printf("Getting Region Tiles\n");
-	}
+//	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+//		printf("Getting Region Tiles: block: %d thread:%d\n",blockIdx.x,threadIdx.x);
+//	}
 	Coord *tiles;
-	tiles = new Coord[mapSize*mapSize];
+	tiles = new Coord[(mapSize*mapSize)+1];
 	int** mapFlags;
 	int tileType = map[startX][startY];
 	//init mapFlags
@@ -32,34 +32,27 @@ __device__ Coord* GetRegionTiles(int startX,int startY,int mapSize,int **map){
 		}
 	}
 
-	tiles[0].x = startX;
-	tiles[0].y = startY;
-	mapFlags [startX][startY] = 1;
-
 	int iter = 0;
 	int cursor = 0;
-	if(Debug && threadIdx.x == 0){
-		//printf("%d, %d; ",tiles[iter].x,tiles[iter].y);
-	}
-	while (tiles[cursor].x != -1 && cursor < mapSize*mapSize) {
+	tiles[iter].x = startX;
+	tiles[iter].y = startY;
+	mapFlags [startX][startY] = 1;
+	iter++;
+	while (tiles[cursor].x != -1) {
 
 		for (int x = tiles[cursor].x - 1; x <= tiles[cursor].x + 1; x++) {
 			for (int y = tiles[cursor].y - 1; y <= tiles[cursor].y + 1; y++) {
 				if ((x >= 0  && x < mapSize && y >= 0  && y < mapSize) && (y == tiles[cursor].y || x == tiles[cursor].x)) {
 					if (mapFlags[x][y] == 0 && map[x][y] == tileType) {
 						mapFlags[x][y] = 1;
-						iter++;
 						tiles[iter].x = x;
 						tiles[iter].y = y;
-						if(Debug && threadIdx.x == 0){
-							//printf("%d, %d; ",tiles[iter].x,tiles[iter].y);
-						}
+						iter++;
 					}
 				}
 			}
 		}
-		if(iter == cursor && iter < mapSize*mapSize){
-			iter++;
+		if(iter == cursor+1){
 			tiles[iter].x = -1;
 			tiles[iter].y = -1;
 			cursor++;
@@ -73,14 +66,14 @@ __device__ Coord* GetRegionTiles(int startX,int startY,int mapSize,int **map){
 		delete(mapFlags[i]);
 	}
 	delete(mapFlags);
-
+//	printf("Tiles: %d", cursor);
 	return tiles;
 }
 
 __device__ Coord** GetRegions(int **map, int mapSize, int startX, int startY, int tileType){
-	if(Debug){// && threadIdx.x == 0){
-		printf("Getting Regions\n");
-	}
+//	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+//		printf("Getting Regions\n");
+//	}
 	Coord** regions;
 	int** mapFlags;
 
@@ -109,35 +102,38 @@ __device__ Coord** GetRegions(int **map, int mapSize, int startX, int startY, in
 					roomNum++;
 				}
 				regions[cursor] = new Coord[roomNum+1];
-				for(i = 0; i <= roomNum; i++){
+				for(i = 0; i < roomNum; i++){
 					regions[cursor][i].x = newRegion[i].x;
 					regions[cursor][i].y = newRegion[i].y;
 				}
-				while(newRegion[iter].x != -1 && iter < mapSize*mapSize){
-					mapFlags[newRegion[iter].x][newRegion[iter].y] = 1;
+				regions[cursor][roomNum].x = -1;
+				regions[cursor][roomNum].y = -1;
+
+				while(regions[cursor][iter].x != -1){
+					mapFlags[(regions[cursor][iter]).x][(regions[cursor][iter]).y] = 1;
 					if(Debug && threadIdx.x == 0){
-						printf("%d, %d; ",regions[cursor][iter].x,regions[cursor][iter].y);
+						//printf("%d, %d; ",regions[cursor][iter].x,regions[cursor][iter].y);
 					}
 					iter++;
 				}
 				if(Debug && threadIdx.x == 0){
-					printf("%d, %d; ",regions[cursor][iter].x,regions[cursor][iter].y);
+					//printf("%d, %d; ",regions[cursor][iter].x,regions[cursor][iter].y);
 				}
 				if(Debug && threadIdx.x == 0){
-					printf("\n");
+					//printf("\n");
 				}
 				delete(newRegion);
 				cursor++;
 			}
 		}
 	}
-	if(cursor < mapSize*mapSize){
-		Coord* newReg = new Coord[1];
-		regions[cursor] = newReg;
+//	if(cursor < mapSize*mapSize){
+		//Coord* newReg = new Coord[1];
+		regions[cursor] = new Coord[1];
 		regions[cursor][0].x = -1;
 		regions[cursor][0].y = -1;
-		delete(newReg);
-	}
+		//delete(newReg);
+//	}
 	for(i = 0; i < mapSize; i++){
 		delete(mapFlags[i]);
 	}
@@ -146,9 +142,9 @@ __device__ Coord** GetRegions(int **map, int mapSize, int startX, int startY, in
 }
 
 __device__ void MakePassage(int **map, Coord tileA, Coord tileB){
-	if(Debug){// && threadIdx.x == 0){
-		printf("Making Passage\n");
-	}
+//	if(Debug && threadIdx.x + blockDim.x*blockIdx.x == 0){
+//		printf("Making Passage\n");
+//	}
 	int cursor = 0;
 	int target = 0;
 	int prevX = 0;
@@ -189,23 +185,26 @@ __device__ void MakePassage(int **map, Coord tileA, Coord tileB){
 }
 
 __device__ void ConnectClosestRooms(Coord **rooms, int **map, int mapSize){
-	if(Debug){// && threadIdx.x == 0){
-		printf("Connect Closest Rooms\n");
-	}
+//	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+//		printf("Connect Closest Rooms\n");
+//	}
 	int roomNum = 0;
 	bool **connected;
 	bool *accessibleToStart;
-
-	if(Debug && threadIdx.x == 0){
-		printf("Finding Room total\n");
+	roomNum = 0;
+	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+		printf("check0: block: %d thread: %d\n",blockIdx.x,threadIdx.x);
 	}
 	while(rooms[roomNum][0].x != -1 && roomNum < mapSize*mapSize){
 		roomNum++;
+		if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+			printf("block: %d thread: %d roomNum: %d Tile Value: %d\n",blockIdx.x,threadIdx.x,roomNum,rooms[roomNum][0].x);
+		}
+	}
+	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+		printf("check1: block: %d thread: %d roomNum: %d\n",blockIdx.x,threadIdx.x,roomNum);
 	}
 
-	if(Debug && threadIdx.x == 0){
-		printf("setting connected tables\n");
-	}
 	connected = new bool*[roomNum];
 	accessibleToStart = new bool[roomNum];
 	for(int row = 0; row < roomNum; row++){
@@ -219,6 +218,9 @@ __device__ void ConnectClosestRooms(Coord **rooms, int **map, int mapSize){
 		}
 	}
 	accessibleToStart[0] = true;
+	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+		printf("check2: block: %d thread: %d\n",blockIdx.x,threadIdx.x);
+	}
 	//while there are disconnected rooms
 	int access = 1;
 	Coord bestTileA;
@@ -228,8 +230,8 @@ __device__ void ConnectClosestRooms(Coord **rooms, int **map, int mapSize){
 	bool possibleConnection = false;
 	int bestDistance = 0;
 
-	if(Debug && threadIdx.x == 0){
-		printf("Connecting Rooms\n");
+	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+		printf("Connecting Rooms: %d;\n",roomNum);
 	}
 	while(access < roomNum){
 		possibleConnection = false;
@@ -239,27 +241,29 @@ __device__ void ConnectClosestRooms(Coord **rooms, int **map, int mapSize){
 		//find two nearest rooms
 		int tileA = 0;
 		int tileB = 0;
+		if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+			printf("Rooms Connected: %d\n", access);
+		}
 		for(int room = 0; room < roomNum; room++){
 			for(int room2 = 0; room2 < roomNum; room2++){
 				if(!connected[room][room2] && !connected[room2][room]){
 					tileA = 0;
-					while(rooms[room][tileA].x != -1 && tileA < mapSize*mapSize){
+					while(rooms[room][tileA].x != -1){// && tileA < mapSize*mapSize){
 						tileB = 0;
-						while(rooms[room2][tileB].x != -1 && tileB < mapSize*mapSize){
+						while(rooms[room2][tileB].x != -1){// && tileB < mapSize*mapSize){
 							int distance = (rooms[room][tileA].x - rooms[room2][tileB].x) * (rooms[room][tileA].x - rooms[room2][tileB].x);
 							distance = distance + (rooms[room][tileA].y - rooms[room2][tileB].y) * (rooms[room][tileA].y - rooms[room2][tileB].y);
 
-							if(Debug && threadIdx.x == 0){
+							if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
 //								printf("Rooms: %d, %d;\n",room,room2);
 //								printf("Tile: %d, %d;\n",rooms[room][tileA].x,rooms[room][tileA].y);
 //								printf("Tile: %d, %d;\n",rooms[room2][tileB].x,rooms[room2][tileB].y);
-//								if(rooms[room][tileA].x>=30){
-//
-//									printf("room num1: %d, room tileA: %d, Rooms: %d, %d; Tile: %d, %d; Tile2: %d, %d; \n", room, tileA, room,room2, rooms[room][tileA].x,rooms[room][tileA].y, rooms[room2][tileB].x,rooms[room2][tileB].y);
-//								}
+								if(rooms[room][tileA].x>=30 || rooms[room][tileA].y>=30 || rooms[room][tileA].x < 0 || rooms[room][tileA].y < 0){
+									printf("room num1: %d, room tileA: %d, Rooms: %d, %d; Tile: %d, %d; Tile2: %d, %d; \n", room, tileA, room,room2, rooms[room][tileA].x,rooms[room][tileA].y, rooms[room2][tileB].x,rooms[room2][tileB].y);
+								}
 
 							}
-							if(distance < bestDistance || !possibleConnection){
+							if((distance < bestDistance || !possibleConnection) && room != room2){
 								bestDistance = distance;
 								possibleConnection = true;
 								bestTileA.x = rooms[room][tileA].x;
@@ -277,9 +281,8 @@ __device__ void ConnectClosestRooms(Coord **rooms, int **map, int mapSize){
 			}
 		}
 		//connect those rooms
-		if(Debug && threadIdx.x == 0){
-			//printf("%d, %d;\n",bestTileA.x,bestTileA.y);
-			//printf("%d, %d;\n",bestTileB.x,bestTileB.y);
+		if(Debug && bestRoom1 == bestRoom2){
+			printf("No rooms found: %d, d%, %d, %d\n",bestRoom1,bestRoom2,threadIdx.x,blockIdx.x);
 		}
 		MakePassage(map,bestTileA,bestTileB);
 		connected[bestRoom1][bestRoom2] = true;
@@ -306,6 +309,11 @@ __device__ void ConnectClosestRooms(Coord **rooms, int **map, int mapSize){
 			}
 		}
 	}
+
+	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+		printf("Rooms connected: block: %d thread: %d\n",blockIdx.x,threadIdx.x);
+	}
+
 	delete(accessibleToStart);
 	for(int i = 0; i < roomNum; i++){
 		delete(connected[i]);
@@ -313,9 +321,15 @@ __device__ void ConnectClosestRooms(Coord **rooms, int **map, int mapSize){
 	}
 	delete(rooms);
 	delete(connected);
+	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+		printf("leave: block: %d thread: %d\n",blockIdx.x,threadIdx.x);
+	}
 }
 
 __device__ int GetNeighbors(int **map, int x, int y, int mapSize){
+	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+		//printf("GetNeighbors\n");
+	}
 	int neighbors = 0;
 	int row = x-1;
 	int col = y-1;
@@ -348,12 +362,18 @@ __device__ int GetNeighbors(int **map, int x, int y, int mapSize){
 }
 
 __device__ void RunCA(int **map, int mapSize, float* rules, unsigned int seed){
+	if(Debug){// && threadIdx.x + blockDim.x*blockIdx.x == 0){
+		printf("RunCA\n");
+	}
 	int **CAmap;
 	int maxCA = 50;
 
 	CAmap = new int*[mapSize];
 	for(int iter = 0; iter < mapSize; iter++){
 		CAmap[iter] = new int[mapSize];
+		for(int x = 0; x < mapSize; x++){
+			CAmap[iter][x] = 0;
+		}
 	}
 	curandState_t state;
 
@@ -373,6 +393,9 @@ __device__ void RunCA(int **map, int mapSize, float* rules, unsigned int seed){
 				}
 				else if(map[x][y] > 0 && rules[GetNeighbors(map,x,y,mapSize)+9] > rand){
 					CAmap[x][y] = 0;
+				}
+				else{
+					CAmap[x][y] = map[x][y];
 				}
 			}
 		}
@@ -468,10 +491,10 @@ __device__ int GetShortestPath(int **map,int mapSize){
 	//return pathLength + deadEnds;
 }
 
-__global__ void GetFitnesses(float **population, float *fitness, int popSize,int chromSize,int mapSize, unsigned int seed) {
-	int chrom = (threadIdx.x);
+__global__ void GetFitnesses(float **population, float *fitness,int chromSize,int mapSize, unsigned int seed) {
+	int chrom = (threadIdx.x + blockDim.x*blockIdx.x);
 	int** map;
-	printf("%d, ",chrom);
+	//printf("check100: %d, ",fitness[10000000]);
 	//init map
 	map = new int*[mapSize];
 	for(int iter = 0; iter < mapSize; iter++){
@@ -481,12 +504,20 @@ __global__ void GetFitnesses(float **population, float *fitness, int popSize,int
 		}
 	}
 
+	if(Debug){
+		for(int x = 0; x < mapSize; x++){
+			for(int y = 0; y < mapSize; y++){
+				printf("%d",map[x][y]);
+			}
+			printf("\n");
+		}
+	}
 	//build maze pattern
 	RunCA(map,mapSize,population[chrom],seed);
 	//clear start and end tiles
 	map[0][0] = 0;
 	map[mapSize-1][mapSize-1] = 0;
-	if(threadIdx.x == 0 && Debug){
+	if(Debug){
 		for(int x = 0; x < mapSize; x++){
 			for(int y = 0; y < mapSize; y++){
 				printf("%d",map[x][y]);
@@ -496,17 +527,16 @@ __global__ void GetFitnesses(float **population, float *fitness, int popSize,int
 	}
 	//find disconnected rooms
 	Coord **rooms = GetRegions(map,mapSize,0,0,0);
-
 	//connect disconnected rooms
 	ConnectClosestRooms(rooms,map,mapSize);
-	if(threadIdx.x == 0 && Debug){
-		for(int x = 0; x < mapSize; x++){
-			for(int y = 0; y < mapSize; y++){
-				printf("%d",map[x][y]);
-			}
-			printf("\n");
-		}
-	}
+//	if(threadIdx.x + blockDim.x*blockIdx.x == 0 && Debug){
+//		for(int x = 0; x < mapSize; x++){
+//			for(int y = 0; y < mapSize; y++){
+//				printf("%d",map[x][y]);
+//			}
+//			printf("\n");
+//		}
+//	}
 //	int roomNum = 0;
 //	while(rooms[roomNum][0].x != -1){
 //		roomNum++;

@@ -20,7 +20,7 @@ bool Debug = false;
 void PopInit(float** population, int popSize,int chromSize){
 	for(int pop = 0; pop < popSize; pop++){
 		for(int chrom = 0; chrom < chromSize; chrom++){
-			population[pop][chrom] = std::rand() % 128;
+			population[pop][chrom] =  std::rand() % 128;
 		}
 	}
 }
@@ -232,11 +232,13 @@ void ParentSelection(float **population, float *fitness, int popSize,int chromSi
 int main() {
   int popSize;
   int chromSize;
+  int mapSize;
+  unsigned int random;
+
   bool GaStop = false;
   int generation = 0;
   int genMax = 0;
-  int mapSize;
-  unsigned int random;
+
 
   //get array dimensions
   //std::cout << "Please enter the dimensions of the matrix (1000<=matSize<=10000):";
@@ -267,15 +269,14 @@ int main() {
   cudaMallocManaged( (void**) &mapSize, sizeof(int));
   cudaMallocManaged( (void**) &chromSize, sizeof(int));
   cudaMallocManaged( (void**) &random, sizeof(unsigned int));
-
   //std::cout << "1" << std::endl;
 
-  popSize = 100;
+  popSize = 128;
   chromSize = 18;
   mapSize = 30;
   random = (unsigned int)(std::rand());
-  int blocks = 1;
-  int threads = popSize;
+  int threads = 1;
+  int blocks = popSize/threads;
 
   //std::cout << "2" << std::endl;
   cudaError_t err = cudaMallocManaged( (void**) &population, (popSize*chromSize) * sizeof(float));
@@ -292,7 +293,7 @@ int main() {
   }
   for(int iter = 0; iter<popSize;iter++){
 	  cudaMallocManaged( (void**) &(population[iter]), (chromSize)*sizeof(float));
-	  fitness[iter] = 0;
+	  fitness[iter] = 1;
   	  for(int cur = 0; cur<chromSize;cur++){
   		population[iter][cur] = 0;
   	  }
@@ -328,6 +329,7 @@ int main() {
   if(Debug){
 	  std::cout << "Initialize population with random values" << std::endl;
   }
+  std::cout << "GA Start!" << std::endl;
   PopInit(population,popSize,chromSize);
   generation = 0;
   //Parallel Evoluitionary Cellular Automata
@@ -335,7 +337,7 @@ int main() {
 	  //get random seed
 	  random = (unsigned int)(std::rand());
 	  //Evaluate fitness on GPU
-	  GetFitnesses<<<blocks, threads>>>(population,fitness,popSize,chromSize,mapSize, 1);//random);
+	  GetFitnesses<<<blocks, threads>>>(population,fitness,chromSize,mapSize, random);
 	  //sync device
 	  cudaDeviceSynchronize();
 
@@ -346,15 +348,13 @@ int main() {
 	  ParentSelection(population,fitness,popSize,chromSize);
 	  //Check for stopping condition
 	  if(generation < genMax){
-		  //if(Debug){
-			  std::cout << "Next Generation" << std::endl;
-		  //}
 		  generation++;
+		  std::cout << "Next Generation: " << generation << std::endl;
 	  }
 	  else{
 		  std::cout << "GA Done!" << std::endl;
 		  GaStop = true;
-		  std::cout << fitness[0] << std::endl;
+		  std::cout << "Best Fitness: " << fitness[0] << std::endl;
 	  }
   }
 
