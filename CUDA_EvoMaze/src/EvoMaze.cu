@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <algorithm>
 #include <math.h>
+#include <fstream>
 
 #include "Fitness.h"
 
@@ -238,6 +239,7 @@ int main() {
   bool GaStop = false;
   int generation = 0;
   int genMax = 0;
+  std::ofstream fout;
 
 
   //get array dimensions
@@ -364,6 +366,12 @@ int main() {
   float elapsedTime;
   cudaEventElapsedTime( &elapsedTime, start, end );
   std::cout << "Your program took: " << elapsedTime << " ms." << std::endl;
+  fout.open("RunTime.txt");
+  fout << elapsedTime << std::endl;
+  fout.close();
+  fout.open("Throughput.txt");
+  fout << elapsedTime/popSize << std::endl;
+  fout.close();
 
   /*
     Let's let the user know that everything is ok and then display

@@ -17,6 +17,4 @@ __device__ Coord** GetRegions(int **, int , int , int , int );
 
 __global__ void GetFitnesses(float **, float *,int,int, unsigned int);
 
-__global__ void mult(int, int**, int**, int**, int**, int**);
-
 #endif // ADD_H_

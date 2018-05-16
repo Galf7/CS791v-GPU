@@ -557,22 +557,3 @@ __global__ void GetFitnesses(float **population, float *fitness,int chromSize,in
 	}
 	delete(map);
 }
-
-
-__global__ void mult(int size,int** a, int** b, int** c, int** d, int** e) {
-	int stride_x = blockDim.x * gridDim.x;
-	int stride_y = blockDim.y * gridDim.y;
-	int x, y;
-	/*for(int id_x = blockIdx.x * blockDim.x + threadIdx.x; id_x < size; id_x += stride_x){
-		for(int id_y = blockIdx.y * blockDim.y + threadIdx.y; id_y < size;	id_y += stride_y){
-			c[id_x][id_y] = a[id_x][id_y] * b[id_y][id_x];
-		}
-	}*/
-	for(int j = (blockIdx.y * blockDim.y + threadIdx.y) * blockDim.x * gridDim.x
-			+ (blockIdx.x * blockDim.x + threadIdx.x);
-			j < size*size; j += stride_x * stride_y){
-		x = j/size;
-		y = j%size;
-		c[x][y] = (a[x][y] * b[y][x]) + (d[x][y] * e[y][x]);
-	}
-}
